@@ -1,0 +1,3 @@
+FROM argentinaluiz/laravel-rabbitmq
+
+EXPOSE 9000

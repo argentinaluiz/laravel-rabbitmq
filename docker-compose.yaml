@@ -1,0 +1,61 @@
+version: "3"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: laravel-rabbitmq-app
+    entrypoint: dockerize -wait tcp://db:3306 -timeout 40s ./.docker/entrypoint.sh
+    volumes:
+      - .:/var/www
+    depends_on:
+      - db
+
+  rabbitmq-consumer:
+    build: ./.docker/rabbitmq-consumer
+    entrypoint: dockerize -wait tcp://rabbitmq:5672 -timeout 40s /usr/bin/supervisord -n -c /etc/supervisord.conf
+    container_name: laravel-rabbitmq-consumer
+    volumes:
+      - .:/var/www
+    depends_on:
+      - db
+      - rabbitmq
+
+  rabbitmq:
+    image: "rabbitmq:3.8-management-alpine"
+    container_name: laravel-rabbitmq-rabbitmq
+    hostname: rabbitmq
+    ports:
+      - 15672:15672
+      - 5672:5672
+    volumes:
+      - ./.docker/rabbitmqdata:/var/lib/rabbitmq/mnesia
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+
+  nginx:
+    build: .docker/nginx
+    container_name: laravel-rabbitmq-nginx
+    restart: always
+    tty: true
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www
+    depends_on:
+      - app
+
+  db:
+    build: ./.docker/mysql
+    container_name: laravel-rabbitmq-db
+    restart: always
+    tty: true
+    ports:
+      - "33006:3306"
+    volumes:
+      - ./.docker/dbdata:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=laravel_rabbitmq
+      - MYSQL_ROOT_PASSWORD=root
